@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROBE_INIT</title></head>
+<body style="font-size:22px;font-family:monospace;padding:10px;background:#fff">
+<h2>PROBE2</h2>
+<script>
+(function(){
+  function b64(s){ try{ return btoa(unescape(encodeURIComponent(s))); }catch(e){ return 'ENCERR'; } }
+  var d={};
+  d.ua=navigator.userAgent.slice(0,80);
+  d.origin=location.origin;
+  d.secure=window.isSecureContext;
+  var ks=[]; try{ks=Object.keys(window);}catch(e){}
+  d.n=ks.length;
+  d.susp=ks.filter(function(k){return /xhs|bridge|inject|jsb|hybrid|horizon|xy[a-z]|native/i.test(k);}).slice(0,20);
+  var cand=['xhsBridge','_xhsBridge','JSBridge','_bridge','XhsBridge','__xhs','hybridBridge','xyBridge','horizonBridge','webviewBridge','jsBridge','XhsHybrid','XhsNative','nativeBridge','jsInterface','Android'];
+  var t={};
+  cand.forEach(function(k){var v='u';try{v=typeof window[k];}catch(e){};if(v!=='undefined'&&v!=='u')t[k]=v;});
+  d.cand=t;
+  document.title='P1|'+b64(JSON.stringify(d)).slice(0,180);
+  setTimeout(function(){
+    var r=null,e=null;
+    try{ r=prompt('xhsbridge-probe'); }catch(x){ e=String(x); }
+    var d2={promptRet:String(r).slice(0,100),promptErr:e};
+    document.title='P2|'+b64(JSON.stringify(d2)).slice(0,180);
+  },700);
+})();
+</script>
+</body></html>
